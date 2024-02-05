@@ -8,7 +8,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///tweets.db"
 # DB
 db = SQLAlchemy(app)
 class Users(db.Model):
-    id = db.Column('id', db.Integer, primary_key = True) # primary_key makes it so that this value is unique and can be used to identify this record.
+    id = db.Column('id', db.Integer, primary_key = True) 
     username = db.Column(db.String(24))
     email = db.Column(db.String(64))
     pwd = db.Column(db.String(64))
@@ -25,7 +25,7 @@ def users():
     method = request.method
     if method.lower() == "get": 
         users = Users.query.all()
-        return jsonify([{"id": user.id, "username": user.username, "email": user.email, "password": user.pwd} for user in users])
+        return jsonify([{"id": user.id, "username": user.username, "email": user.email} for user in users])
     elif method.lower() == "post":
         try:
             username = request.json["username"]
@@ -33,7 +33,7 @@ def users():
             pwd = request.json["pwd"]
             if username and pwd and email:
                 try:
-                    user = Users(username, email, pwd) # Creates new record
+                    user = Users(username, email, pwd) 
                     db.session.add(user) # adds the record for committing
                     db.session.commit() # Saves our changes
                     return jsonify({"success": True})
@@ -61,4 +61,4 @@ def users():
 
 
 if __name__ == "__main__":
-    app.run(debug=True) # debug=True restarts the server everytime we make a change in our code
+    app.run(debug=True) 
