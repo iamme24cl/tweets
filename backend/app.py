@@ -10,7 +10,7 @@ CORS(app)
 
 # DB
 db = SQLAlchemy(app)
-class Users(db.Model):
+class User(db.Model):
     id = db.Column('id', db.Integer, primary_key = True) 
     username = db.Column(db.String(24))
     email = db.Column(db.String(64))
@@ -23,13 +23,17 @@ class Users(db.Model):
         self.pwd = pwd
 
 def getUsers():
-    users = Users.query.all()
+    users = User.query.all()
     return [{"id": u.id, "username": u.username, "email": u.email, "pwd": u.pwd} for u in users]
+
+def getUser(uid):
+    user = User.query.get(uid)
+    return {"id": user.id, "username": user.username, "email": user.email, "pwd": user.pwd}
 
 def addUser(username, email, pwd):
     if username and email and pwd:
         try:
-            user = Users(username, email, pwd)
+            user = User(username, email, pwd)
             db.session.add(user)
             db.session.commit()
             return True
@@ -43,7 +47,7 @@ def removeUser(uid):
     uid = request.json["id"]        
     if uid:
         try:
-            user = Users.query.get(uid)
+            user = User.query.get(uid)
             db.session.delete(user)
             db.session.commit()
             return True
@@ -52,7 +56,49 @@ def removeUser(uid):
             return False
     else:
         return False
+    
+class Tweet(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    uid = db.Column(db.Integer, db.ForeignKey("user.id"))
+    user = db.relationship('User', foreign_keys=uid)
+    title = db.Column(db.String(256))
+    content = db.Column(db.String(2048))
 
+    # constructor
+    def __init__(self, title, content, userId):
+        self.title = title
+        self.content = content
+        self.uid = userId
+
+def getTweets():
+    tweets = Tweet.query.all()
+    return [{"id": t.id, "title": t.title, "content": t.content, "user": getUser(t.uid)} for t in tweets]
+
+def getUserTweets(uid):
+    tweets = Tweet.query.all()
+    return [{"id": tweet.id, "uid": tweet.uid, "title": tweet.title, "content": tweet.content} for tweet in filter(lambda t: t.uid == uid, tweets)]
+
+def addTweet(title, content, uid):
+    try:
+        user = list(filter(lambda u: u.id == uid, User.query.all()))[0]
+        tweet = Tweet(title, content, user.id)
+        db.session.add(tweet)
+        db.session.commit()
+        return jsonify({"success": "true"}), 201
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "Something went wrong!"}), 500
+  
+def delTweet(id):
+    try:
+        tweet = Tweet.query.get(id)
+        db.session.delete(tweet)
+        db.session.commit()
+        return jsonify({"success": "true"}), 200
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "Something went wrong!"}), 500
+  
 
 # Routes
 @app.route("/login", methods=["POST"])
@@ -61,17 +107,16 @@ def login():
         email = request.json["email"]
         pwd = request.json["pwd"]
         if email and pwd:
-            users = getUsers()
-            for user in users:
-                if user["email"] == email and user["pwd"] == pwd:
-                    return jsonify({"status": 200, "success": True})
-                else:
-                    return jsonify({"status": 404, "message": "User not found!"})
+            user = list(filter(lambda u: u["email"] == email and u["pwd"] == pwd, getUsers()))
+            if len(user) == 1:
+                return jsonify({"success": True}), 200
+            else:
+                return jsonify({"error": "Unauthorized user!"}), 401
         else:
-            return jsonify({"status": 404, "error": "Invalid Parameters"})
+            return jsonify({"error": "Invalid Parameters"}), 400
     except Exception as e:
         print(e)
-        return jsonify({"status": 500, "error": "Something went wrong!"})
+        return jsonify({"error": "Something went wrong!"}), 500
     
 
 @app.route("/register", methods=["POST"])           
@@ -84,22 +129,50 @@ def register():
         users = getUsers()
         for user in users:
             if user["email"] == email and user["pwd"] == pwd:
-                return jsonify({"status": 404, "success": False, "message": "User with email " + user.email + " already exists!"})
+                return jsonify({"success": False, "error": "User with email " + user.email + " already exists!"}), 400
         # Email validation check
         if not re.fullmatch(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b', email):
-            return jsonify({"status": 404, "success": False, "message": "Invalid email"})
+            return jsonify({"success": False, "error": "Invalid email"}), 400
         
         addUser(username, email, pwd)
-        return jsonify({"status": 201, "success": True})
+        return jsonify({"success": True}), 201
     except:
-        return jsonify({"status": 500, "error": "Something went wrong!"})
+        return jsonify({"error": "Something went wrong!"}), 500
+    
+@app.route("/tweets", methods=["GET", "POST", "DELETE"])
+def tweets():
+    method = request.method
+    if method.lower() == "get": 
+        return jsonify(getTweets()), 200
+    elif method.lower() == "post":
+        try:
+            title = request.json["title"]
+            content = request.json["content"]
+            uid = request.json["uid"]
+            if title and content and uid:
+                return addTweet(title, content, uid)
+            else:
+                return jsonify({"error": "Invalid parameters"}), 400
+        except Exception as e:
+            print(e)
+            return jsonify({"error": "Something went wrong!"}), 500
+    elif method.lower() == "delete":
+        try: 
+            tweet_id = request.json["tid"]
+            if tweet_id:
+                return delTweet(tweet_id)
+            else:
+                return jsonify({"error": "Invalid parameters"}), 400
+        except Exception as e:
+            print(e)
+            return jsonify({"error": "Something went wrong!"}), 500
 
 
 @app.route('/users', methods=["GET", "POST", "DELETE"])
 def users():
     method = request.method
     if method.lower() == "get": 
-        users = Users.query.all()
+        users = User.query.all()
         return jsonify([{"id": user.id, "username": user.username, "email": user.email, "pwd": user.pwd} for user in users])
     elif method.lower() == "post":
         try:
@@ -108,32 +181,40 @@ def users():
             pwd = request.json["pwd"]
             if username and pwd and email:
                 try:
-                    user = Users(username, email, pwd) 
+                    user = User(username, email, pwd) 
                     db.session.add(user) # adds the record for committing
                     db.session.commit() # Saves our changes
-                    return jsonify({"success": True})
+                    return jsonify({"success": True}), 201
                 except Exception as e:
-                    return ({"error": e})
+                   print(e)
+                   return jsonify({"error": "Something went wrong!"}), 500
             else:
-                return jsonify({"error": "Invalid parameters"})
-        except:
-            return jsonify({"error": "Invalid Parameters"})
+                return jsonify({"error": "Invalid parameters"}), 400
+        except Exception as e:
+            print(e)
+            return jsonify({"error": "Something went wrong!"}), 500
     elif method.lower() == "delete":
         try:
             uid = request.json["id"]
             if uid:
                 try:
-                    user = Users.query.get(uid)
+                    user = User.query.get(uid)
                     db.session.delete(user)
                     db.session.commit()
-                    return jsonify({"success": True})
+                    return jsonify({"success": True}), 201
                 except Exception as e:
-                    return ({"error": e})
+                    print(e)
+                    return jsonify({"error": "Something went wrong!"}), 500
             else:
-                return jsonify({"error": "Invalid Parameters"})
-        except:
-            return jsonify({"error": "Invalid Parameters"})
+                return jsonify({"error": "Invalid Parameters"}), 400
+        except Exception as e:
+            print(e)
+            return jsonify({"error": "Something went wrong!"}), 500
 
+@app.route('/')
+def root():
+    db.create_all()
+    return jsonify({"success": True, "message": "Hello from Tweets server!"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True) 
