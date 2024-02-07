@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
+import Alert from "./Alert";
 
 function Login() {
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
+    const [err, setErr] = useState('');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
 
     const handleSubmit = (event)  => {
@@ -13,17 +16,26 @@ function Login() {
                 email: email,
                 pwd: pwd,
             })
-            .then((res) => {
-                console.log(res.data)
+            .then(() => {
+                setIsLoggedIn(true)
+                window.location = "/mainpage"
+            })
+            .catch((error) => {
+                setErr(error.response.data.error)
             });
     };
 
     return (
-        <div className="w3-card-4" style={{ margin: "2rem" }}>
+        <div className="w3-card-4" style={{ margin: "2rem" }} onClick={() => setErr('')}>
             <div className="w3-container w3-blue w3-center w3-xlarge">
                 LOGIN
             </div>
             <div className="w3-container">
+                {err.length > 0 && (
+                    <Alert 
+                        message={`Check your inputs and try again! (${err})`}
+                    />
+                )}
                 <form onSubmit={handleSubmit}>
                     <p>
                         <label>Email</label>
@@ -47,6 +59,7 @@ function Login() {
                         <button type="submit" className="w3-button w3-blue">
                             Login
                         </button>
+                        {isLoggedIn && <p>Successfully logged in!</p>}
                     </p>
                 </form>
             </div>

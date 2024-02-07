@@ -1,5 +1,6 @@
-import axios from "axios";
 import React, { useState } from "react";
+import axios from "axios";
+import Alert from "./Alert";
 
 function Register() {
     const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ function Register() {
                 if (res.data.error) {
                     setErr(res.data.error)
                 } else {
-                    setRegister(True)
+                    setRegister(true)
                 }
             });
     };
@@ -31,12 +32,17 @@ function Register() {
                 REGISTER
             </div>
             <div className="w3-container">
+                {err.length > 0 && (
+                    <Alert 
+                        message={`Check your inputs and try again! (${err})`}
+                    />
+                )}
                 <form onSubmit={handleSubmit}>
                     <p>
                         <label>Email</label>
                         <input
                             type="email"
-                            class="w3-input w3-border"
+                            className="w3-input w3-border"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                         />
@@ -45,7 +51,7 @@ function Register() {
                         <label>Username</label>
                         <input
                             type="text"
-                            class="w3-input w3-border"
+                            className="w3-input w3-border"
                             value={username}
                             onChange={e => setUsername(e.target.value)}
                         />
@@ -54,13 +60,13 @@ function Register() {
                         <label>Password</label>
                         <input
                             type="text"
-                            class="w3-input w3-border"
+                            className="w3-input w3-border"
                             value={pwd}
                             onChange={e => setPwd(e.target.value)}
                         />
                     </p>
                     <p>
-                        <button type="submit" class="w3-button w3-blue">
+                        <button type="submit" className="w3-button w3-blue">
                             Register
                         </button>
                         {register && <p>You're registered!</p>}
