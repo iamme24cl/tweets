@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import Alert from "./Alert";
+import login from "../api/loginApi";
 
 function Login() {
     const [email, setEmail] = useState('');
@@ -11,18 +12,14 @@ function Login() {
 
     const handleSubmit = (event)  => {
         event.preventDefault();
-        axios
-            .post("http://localhost:5000/login", {
-                email: email,
-                pwd: pwd,
-            })
-            .then(() => {
+        login(email, pwd).then((resp) => {
+            if (resp.success == true) {
                 setIsLoggedIn(true)
-                window.location = "/mainpage"
-            })
-            .catch((error) => {
-                setErr(error.response.data.error)
-            });
+                window.location = "/"
+            } else {
+                setErr(resp.error.response.data.error)
+            }
+        })
     };
 
     return (

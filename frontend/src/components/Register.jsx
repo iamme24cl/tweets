@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import Alert from "./Alert";
+import registerUser from "../api/registerUserApi";
 
 function Register() {
     const [email, setEmail] = useState('');
@@ -11,20 +12,17 @@ function Register() {
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        axios
-            .post("http://localhost:5000/register", {
-                email: email,
-                username: username,
-                pwd: pwd,
-            })
-            .then((res) => {
-                if (res.data.error) {
-                    setErr(res.data.error)
-                } else {
-                    setRegister(true)
-                }
-            });
-    };
+        registerUser(email, username, pwd).then((resp) => {
+            console.log(resp)
+            if (resp.success === true) {
+                setRegister(true)
+                window.location = "/login"
+            } else {
+                console.log(resp.error)
+                setErr(resp.error.response.data.error)
+            }
+        })
+    }     
 
     return (
         <div className="w3-card-4" style={{ margin: "2rem" }}>

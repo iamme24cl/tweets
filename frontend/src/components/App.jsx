@@ -4,6 +4,7 @@ import MainPage from "./MainPage";
 import Navbar from "./Navbar";
 import Login from "./Login";
 import Register from "./Register";
+import { verifyToken } from "../helper/helper";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 function App() {
@@ -13,8 +14,7 @@ function App() {
             <Navbar />
             <Router>
                 <Routes>
-                    <Route path="/" exact element={<Home />} />
-                    <Route path="/mainpage" exact element={<MainPage />}/>
+                    <Route path="/" exact element={verifyToken() ? <MainPage /> : <Home />} />
                     <Route path="/login" exact element={<Login />} />
                     <Route path="/register" exact element={<Register />} />
                 </Routes>
