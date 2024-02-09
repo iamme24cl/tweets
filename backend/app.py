@@ -1,12 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import re
 
 app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///tweets.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["JWT_SECRET_KEY"] = "myawesomesecretkeyhahahahaha"
 CORS(app)
+JWTManager(app)
 
 # DB
 db = SQLAlchemy(app)
@@ -31,18 +35,15 @@ def getUser(uid):
     return {"id": user.id, "username": user.username, "email": user.email, "pwd": user.pwd}
 
 def addUser(username, email, pwd):
-    if username and email and pwd:
-        try:
-            user = User(username, email, pwd)
-            db.session.add(user)
-            db.session.commit()
-            return True
-        except Exception as e:
-            print(e)
-            return False 
-    else:
-        return False 
-
+    try:
+        user = User(username, email, pwd)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({"success": "true"}), 201
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "Something went wrong!"}), 500
+    
 def removeUser(uid):
     uid = request.json["id"]        
     if uid:
@@ -50,12 +51,12 @@ def removeUser(uid):
             user = User.query.get(uid)
             db.session.delete(user)
             db.session.commit()
-            return True
+            return jsonify({"success": "true"}), 200
         except Exception as e:
             print(e)
-            return False
+            return jsonify({"error": "Something went wrong!"}), 500
     else:
-        return False
+        return jsonify({"error": "Invalid parameters"}), 400
     
 class Tweet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -106,10 +107,16 @@ def login():
     try:
         email = request.json["email"]
         pwd = request.json["pwd"]
+        print(email)
+        print(pwd) 
+        print(getUsers())
         if email and pwd:
             user = list(filter(lambda u: u["email"] == email and u["pwd"] == pwd, getUsers()))
+            print(user)
+            print(len(user))
             if len(user) == 1:
-                return jsonify({"success": True}), 200
+                token = create_access_token(identity=user[0]["id"])
+                return jsonify({"success": True, "token": token}), 200
             else:
                 return jsonify({"error": "Unauthorized user!"}), 401
         else:
@@ -126,20 +133,23 @@ def register():
         pwd = request.json["pwd"]
         username = request.json["username"]
         # check to see if user already exists
-        users = getUsers()
-        for user in users:
-            if user["email"] == email and user["pwd"] == pwd:
-                return jsonify({"success": False, "error": "User with email " + user.email + " already exists!"}), 400
+        user = list(filter(lambda u: u["email"] == email and u["pwd"] == pwd, getUsers()))
+        if len(user) == 1:
+            return jsonify({"success": False, "error": "User with email " + user.email + " already exists!"}), 400
         # Email validation check
         if not re.fullmatch(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b', email):
             return jsonify({"success": False, "error": "Invalid email"}), 400
-        
-        addUser(username, email, pwd)
-        return jsonify({"success": True}), 201
-    except:
+        if email and pwd and username:  
+            return addUser(username, email, pwd)
+        else:
+            return jsonify({"error": "Invalid parameters"}), 400
+    except Exception as e:
+        print("line 144")
+        print(e)
         return jsonify({"error": "Something went wrong!"}), 500
     
 @app.route("/tweets", methods=["GET", "POST", "DELETE"])
+@jwt_required()
 def tweets():
     method = request.method
     if method.lower() == "get": 
